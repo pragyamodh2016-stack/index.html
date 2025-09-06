@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blueprint Generator for Yukta</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a202c; /* Dark charcoal background */
+            color: #f3f4f6;
+        }
+        .container-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .blueprint-container {
+            min-height: 400px;
+            background-color: #0b1418;
+            border: 2px dashed #3f88c5;
+        }
+        .loading-spinner {
+            border-top-color: #3b82f6;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- Main Content Card -->
+    <div class="container-card p-8 md:p-12 w-full max-w-4xl mx-auto rounded-3xl shadow-xl transition-transform duration-500 ease-in-out">
+        <!-- Main Heading -->
+        <h1 class="text-3xl sm:text-4xl md:text-5xl text-blue-400 font-bold mb-4 text-center">
+            Happy Birthday, Yukta!
+        </h1>
+
+        <!-- Birthday Message -->
+        <p class="text-gray-300 text-lg sm:text-xl leading-relaxed text-center mb-8">
+            To my dearest sister, Yukta. As you celebrate another year, I've made this special app for you. Use the blueprint generator below to bring your architectural ideas to life. I know you're destined to create amazing things!
+            <br><br>
+            Love always, Kanishk
+        </p>
+
+        <!-- Blueprint Generator Section -->
+        <div class="flex flex-col items-center w-full mb-8">
+            <div class="w-full">
+                <input type="text" id="prompt-input" placeholder="e.g., A minimalist house with a large glass facade" class="w-full p-4 rounded-lg bg-gray-800 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300">
+            </div>
+            <button id="generate-button" class="mt-4 px-8 py-3 bg-blue-600 text-white font-bold rounded-full shadow-lg hover:bg-blue-700 transition duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                Generate Blueprint
+            </button>
+        </div>
+
+        <!-- Blueprint Display Area -->
+        <div id="blueprint-area" class="blueprint-container flex items-center justify-center w-full rounded-2xl overflow-hidden shadow-lg">
+            <div id="loading-indicator" class="hidden w-16 h-16 border-4 border-gray-600 rounded-full loading-spinner"></div>
+            <img id="blueprint-image" class="hidden w-full h-full object-contain p-4" alt="Generated blueprint" onerror="this.style.display='none'">
+            <span id="initial-message" class="text-gray-500 text-sm italic p-4 text-center">Your generated blueprint will appear here.</span>
+        </div>
+    </div>
+
+    <!-- JavaScript for API call -->
+    <script>
+        const promptInput = document.getElementById('prompt-input');
+        const generateButton = document.getElementById('generate-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const blueprintImage = document.getElementById('blueprint-image');
+        const initialMessage = document.getElementById('initial-message');
+        
+        generateButton.addEventListener('click', async () => {
+            const userPrompt = promptInput.value.trim();
+            if (!userPrompt) {
+                const errorMessage = "Please enter a description for your blueprint.";
+                initialMessage.textContent = errorMessage;
+                initialMessage.classList.remove('hidden');
+                return;
+            }
+
+            generateButton.disabled = true;
+            loadingIndicator.classList.remove('hidden');
+            blueprintImage.classList.add('hidden');
+            initialMessage.classList.add('hidden');
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+
+            const payload = { 
+                instances: { prompt: userPrompt + ", architectural blueprint, black and white line drawing, technical drawing" }, 
+                parameters: { "sampleCount": 1 } 
+            };
+
+            let success = false;
+            let retries = 0;
+            const maxRetries = 3;
+            const delay = 1000;
+
+            while (!success && retries < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                        const base64Data = result.predictions[0].bytesBase64Encoded;
+                        const imageUrl = `data:image/png;base64,${base64Data}`;
+                        blueprintImage.src = imageUrl;
+                        blueprintImage.classList.remove('hidden');
+                        success = true;
+                    } else {
+                        throw new Error('Invalid response structure or missing image data.');
+                    }
+                } catch (error) {
+                    console.error('API call failed:', error);
+                    retries++;
+                    if (retries < maxRetries) {
+                        await new Promise(res => setTimeout(res, delay * Math.pow(2, retries)));
+                    } else {
+                        loadingIndicator.classList.add('hidden');
+                        initialMessage.textContent = "Failed to generate blueprint. Please try again.";
+                        initialMessage.classList.remove('hidden');
+                    }
+                }
+            }
+
+            loadingIndicator.classList.add('hidden');
+            generateButton.disabled = false;
+        });
+    </script>
+</body>
+</html>
